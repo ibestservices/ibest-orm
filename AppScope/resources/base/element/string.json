@@ -1,0 +1,20 @@
+{
+  "string": [
+    {
+      "name": "app_name",
+      "value": "IBest-ORM"
+    },
+    {
+      "name": "app_desc",
+      "value": "一个简单易用的鸿蒙开源ORM工具库。"
+    },
+    {
+      "name": "app_doc_url",
+      "value": "https://ibest-orm.ibestservices.com/guide/home"
+    },
+    {
+      "name": "company_url",
+      "value": "https://www.ibestservices.com"
+    }
+  ]
+}

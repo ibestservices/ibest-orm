@@ -1,0 +1,24 @@
+{
+  "name": "@ibestservices/ibest-orm",
+  "version": "1.0.0",
+  "description": "一个全功能 ORM，支持关联、预加载、事务、批量处理、开发者友好的鸿蒙开源关系型数据库工具库。",
+  "keywords": [
+    "数据库",
+    "Mysql",
+    "ORM",
+    "RDB",
+    "鸿蒙数据库"
+  ],
+  "main": "Index.ets",
+  "author": "ibestservices",
+  "license": "Apache-2.0",
+  "dependencies": {},
+  "tags": [
+    "rdb",
+    "orm"
+  ],
+  "type": "module",
+  "repository": "https://github.com/ibestservices/ibest-orm",
+  "homepage": "https://ibest-orm.ibestservices.com"
+
+}

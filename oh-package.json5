@@ -1,0 +1,13 @@
+{
+  "modelVersion": "5.0.5",
+  "name": "IBest-ORM",
+  "description": "一个简单易用的鸿蒙开源ORM工具库。",
+  "dependencies": {
+    "@ibestservices/ibest-orm": "file:./library",
+    "@ibestservices/ibest-ui": "2.1.4"
+  },
+  "devDependencies": {
+    "@ohos/hypium": "1.0.21",
+    "@ohos/hamock": "1.0.0"
+  }
+}
