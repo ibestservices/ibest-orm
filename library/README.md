@@ -7,11 +7,11 @@
 <p align="center">轻量、易用的 HarmonyOS NEXT 数据库工具库</p>
 
 <p align="center">
-    <a style="color:#0366d6;" onclick="openPage('https://ibest-orm.ibestservices.com')">文档</a>
+    <a href="https://ibest-orm.ibestservices.com/" target="_blank">文档</a>
     &nbsp;
     ·
     &nbsp;
-    <a style="color:#0366d6;" onclick="openPage('https://github.com/ibestservices/ibest-orm')">Github</a>
+    <a href="https://ohpm.openharmony.cn/#/cn/detail/@ibestservices%2Fibest-orm" target="_blank">三方库中心仓</a>
 </p>
 
 ---
