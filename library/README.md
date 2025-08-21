@@ -11,7 +11,7 @@
     &nbsp;
     ·
     &nbsp;
-    <a href="https://ohpm.openharmony.cn/#/cn/detail/@ibestservices%2Fibest-orm" target="_blank">三方库中心仓</a>
+    <a href="https://github.com/ibestservices/ibest-orm" target="_blank">Github</a>
 </p>
 
 ---
