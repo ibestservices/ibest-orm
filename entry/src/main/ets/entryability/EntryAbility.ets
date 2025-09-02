@@ -1,7 +1,7 @@
 import { AbilityConstant, ConfigurationConstant, UIAbility, Want } from '@kit.AbilityKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { window } from '@kit.ArkUI';
-import { IBestORMInit } from '@ibestservices/ibest-orm';
+import { Examples, IBestORMInit } from '@ibestservices/ibest-orm';
 import { relationalStore } from '@kit.ArkData';
 import { IBestInit } from '@ibestservices/ibest-ui';
 
@@ -36,6 +36,8 @@ export default class EntryAbility extends UIAbility {
         securityLevel: relationalStore.SecurityLevel.S1
       }).then(()=>{
         this.storage.set('IBestReady', true);
+        const test = new Examples()
+        test.runAllExamples();
       })
     });
   }

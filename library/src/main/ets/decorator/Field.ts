@@ -1,6 +1,7 @@
 import { AnyType } from "../model/Global.type";
 import { FieldType } from "../model/Global.type";
 import { camelToSnakeCase } from "../utils/Utils";
+import { Class } from "./Index";
 
 export type FieldTag =
   |'primaryKey'                        // 定义为主键
@@ -36,13 +37,18 @@ export interface FieldParams {
  */
 export function Field(opts: FieldParams) {
   return function (target: AnyType, propertyKey: string) {
-    if (!target.constructor.__MetaData__) {
-      target.constructor.__MetaData__ = [];
+    const constructor = target.constructor as Class;
+
+    if (!Object.prototype.hasOwnProperty.call(constructor, '__FieldMeta__')) {
+      // 创建新的数组，不继承父类的引用
+      constructor.__FieldMeta__ = [];
     }
+
     if (opts.name === undefined) {
-      opts.name = camelToSnakeCase(propertyKey)
+      opts.name = camelToSnakeCase(propertyKey);
     }
-    target.constructor.__MetaData__.push({
+
+    constructor.__FieldMeta__.push({
       propertyKey,
       ...opts
     });

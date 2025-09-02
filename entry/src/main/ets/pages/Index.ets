@@ -43,7 +43,7 @@ struct Index {
         })
         console.log(TAG, error);
       } else {
-        this.data = this.db.Table("Apps").Find();
+        this.data = this.db.Table("apps").Find();
       }
     }
   }
@@ -51,7 +51,7 @@ struct Index {
   reload() {
     this.IBestReady = false;
     setTimeout(() => {
-      this.data = this.db.Table("Apps").Find();
+      this.data = this.db.Table("apps").Find();
       this.IBestReady = true;
     }, 500)
   }
@@ -86,11 +86,10 @@ struct Index {
           IBestButton({
             type: "primary",
             text: "插入数据",
-            onBtnClick: () => {
+            onBtnClick: async () => {
               const apps = [new Apps("IBest-UI", "鸿蒙开源UI组件库"), new Apps("IBest-ORM", "鸿蒙开源ORM工具库")];
-              if (this.db.Create(apps)) {
-                this.reload()
-              }
+              const rowId = await this.db.Create(apps)
+              if (rowId) this.reload()
             }
           })
           IBestButton({
@@ -107,7 +106,7 @@ struct Index {
             text: "IBest-UI",
             onBtnClick: () => {
               const app = new Apps("","");
-              this.db.Table('Apps').Where('name', 'IBest-UI').First(app);
+              this.db.Table('apps').Where('name', 'IBest-UI').First(app);
               if(app.ID) {
                 IBestDialogUtil.open({
                   message: JSON.stringify(app)
@@ -120,7 +119,7 @@ struct Index {
             text: "IBest-ORM",
             onBtnClick: () => {
               const app = new Apps("","");
-              this.db.Table('Apps').Where('name', 'IBest-ORM').First(app);
+              this.db.Table('apps').Where('name', 'IBest-ORM').First(app);
               if(app.ID) {
                 IBestDialogUtil.open({
                   message: JSON.stringify(app)

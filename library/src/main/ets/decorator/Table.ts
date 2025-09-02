@@ -1,10 +1,17 @@
 import { AnyType } from "../model/Global.type";
+import { camelToSnakeCase } from "../utils/Utils";
+import { FieldParams } from "./Field";
 import { Class } from "./Index";
+import { RelationConfig } from "./Relation";
 
-// 扩展Function接口，让__MetaData__可以是Partial<TableParams>（所有属性可选）
 declare global {
   interface Function {
-    __MetaData__?: Partial<TableParams>;
+    // 表元数据（对象）
+    __TableMeta__?: Partial<TableParams>;
+    // 字段元数据（数组）
+    __FieldMeta__?: FieldParams[];
+    // 关联元数据（保持不变）
+    __RelationMeta__?: RelationConfig[];
   }
 }
 
@@ -19,12 +26,12 @@ export const Table = (arg: TableParams | Class): AnyType => {
   // 带参数的情况：返回类装饰器
   if (typeof arg === 'object') {
     return (target: Class) => {
-      target.__MetaData__ = { ...arg };
+      target.__TableMeta__ = { ...arg };
     };
   }
   // 不带参数的情况：直接处理构造函数
   else if (typeof arg === 'function') {
-    arg.__MetaData__ = arg.__MetaData__ || {};
-    arg.__MetaData__.name = arg.name;
+    arg.__TableMeta__ = arg.__TableMeta__ || {};
+    arg.__TableMeta__.name = camelToSnakeCase(arg.name);
   }
 };

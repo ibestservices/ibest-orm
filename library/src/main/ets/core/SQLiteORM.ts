@@ -1,15 +1,22 @@
-import { relationalStore  } from '@kit.ArkData';
+import { relationalStore } from '@kit.ArkData';
+import { Context } from '@kit.AbilityKit';
 import { Class, GetColumnMeta, GetTableName } from '../decorator/Index';
 import { camelToSnakeCase, createTableSQLByMeta, formatCastExpressions, getLocalTimeString} from '../utils/Utils';
 import { FieldType } from "../model/Global.type";
+import { RelationQueryExtension } from './RelationQueryExtension';
+import { getMetadataCollector } from './MetadataCollector';
+import { LazyLoadManager, LazyLoadProxy } from './LazyLoad';
+import { CascadeManager, CascadeResult } from './CascadeManager';
 
 const TAG = "ibest-orm"
 
 class Migrator {
+  private orm: IBestORM;
   private rdbStore: relationalStore.RdbStore;
 
-  constructor(rdbStore: relationalStore.RdbStore) {
+  constructor(rdbStore: relationalStore.RdbStore, orm: IBestORM) {
     this.rdbStore = rdbStore;
+    this.orm = orm;
   }
   // Tables
   CreateTable(model: Class) {
@@ -21,6 +28,9 @@ class Migrator {
     const meta = GetColumnMeta(model);
     console.log(TAG, createTableSQLByMeta(table, meta))
     this.rdbStore!.executeSql(createTableSQLByMeta(table, meta))
+    
+    // 收集实体元数据并自动创建多对多关联表
+    getMetadataCollector().collect(model, this.orm);
   }
 
   DropTable(model: Class) {
@@ -36,7 +46,9 @@ class Migrator {
       table = GetTableName(model);
     }
 
-    let resultSet = this.rdbStore!.querySqlSync(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = '${table}'`);
+    const sql = `SELECT name FROM sqlite_master WHERE type = 'table' AND name = '${table}'`
+    //console.log(TAG, sql);
+    let resultSet = this.rdbStore!.querySqlSync(sql);
     let res: boolean = false;
     if(resultSet.rowCount > 0) {
       res = true;
@@ -210,6 +222,9 @@ export class IBestORM {
   private columns: Array<string> = []
   private predicates: relationalStore.RdbPredicates|null = null
   private migrator: Migrator|null = null
+  private relationExtension: RelationQueryExtension|null = null
+  private lazyLoadManager: LazyLoadManager|null = null
+  private cascadeManager: CascadeManager | null = null
 
   private constructor(
     rdbStore: relationalStore.RdbStore,
@@ -217,7 +232,13 @@ export class IBestORM {
   ) {
     this.rdbStore = rdbStore;
     this.storeConfig = storeConfig;
-    this.migrator = new Migrator(rdbStore); // 此时rdbStore已就绪，无需!断言
+    this.migrator = new Migrator(rdbStore, this);
+    // 初始化关联查询扩展
+    this.relationExtension = new RelationQueryExtension(this);
+    // 初始化延迟加载器
+    this.lazyLoadManager = new LazyLoadManager(this);
+    // 初始化级联操作管理器
+    this.cascadeManager = CascadeManager.getInstance(this);
     console.log(TAG, "SQLiteORM Init");
   }
 
@@ -244,9 +265,74 @@ export class IBestORM {
     this.Migrator().AddColumn(model);
     //this.Migrator().DropColumn(model);
     this.Migrator().AlterColumn(model);
+
+    getMetadataCollector().collect(model, this);
   }
 
-  Create(model: Object|Array<Object>): number {
+  GetCore() {
+    return this.rdbStore;
+  }
+
+  /**
+   * 创建实体记录（支持级联创建）
+   */
+  async Create(model: Object|Array<Object>, options?: { cascade?: boolean, entityClass?: Class }): Promise<number> {
+    const cascade = options?.cascade ?? false;
+    const entityClass = options?.entityClass;
+
+    if (cascade && this.cascadeManager) {
+      if(entityClass) {
+        Object.setPrototypeOf(model, entityClass.prototype);
+      }
+      // 使用级联创建
+      if (Array.isArray(model)) {
+        let totalCreated = 0;
+        for (const item of model) {
+          const result: CascadeResult = await this.cascadeManager.cascadeCreate(item, item.constructor);
+          //this.cascadeResultLog(result);
+          if (result.operationCount > 0) totalCreated++;
+        }
+        return totalCreated;
+      } else {
+        const result = await this.cascadeManager.cascadeCreate(model, model.constructor as Class);
+        return result.operationCount;
+      }
+    }
+
+    return this.createInternal(model);
+  }
+
+  private cascadeResultLog(result: CascadeResult) {
+    console.log('级联创建结果:');
+    console.log('- 成功:', result.success);
+    console.log('- 执行时间:', result.executionTime, 'ms');
+    console.log('- 操作数量:', result.operationCount);
+    console.log('- 受影响的实体:');
+
+    const map = result.affectedEntities;
+    const keys = map.keys();
+    let key = keys.next();
+    while (!key.done) {
+      const tableName = key.value;
+      const entities = map.get(tableName);
+      if (entities) {
+        console.log(`  ${tableName}: ${entities.length} 条记录`);
+      }
+      key = keys.next();
+    }
+
+    if (result.errors.length > 0) {
+      console.log('- 错误信息:');
+      result.errors.forEach((error, index) => {
+        console.log(`  ${index + 1}. ${error.relation}: ${error.error.message}`);
+      });
+    }
+  }
+
+  /**
+   * 内部创建方法
+   */
+  private createInternal(model: Object|Array<Object>): number {
     let table = "";
     let values: relationalStore.ValuesBucket|Array<relationalStore.ValuesBucket> = {};
     if(Array.isArray(model)) {
@@ -264,8 +350,8 @@ export class IBestORM {
         values.push(tmp)
       }
     } else {
-      table = GetTableName(model.constructor);
-      const meta = GetColumnMeta(model.constructor);
+      table = GetTableName(model.constructor as Class);
+      const meta = GetColumnMeta(model.constructor as Class);
       for (let i = 0; i < meta.length; i++) {
         const key = meta[i].propertyKey!
         if((this.columns.length > 0 && this.columns.includes(camelToSnakeCase(key))) || this.columns.length == 0) {
@@ -276,8 +362,23 @@ export class IBestORM {
     return this.Table(table).Insert(values);
   }
 
-  DeleteByEntity(model: Object) {
-    const meta = GetColumnMeta(model.constructor);
+  /**
+   * 删除实体记录（支持级联删除）
+   */
+  async DeleteByEntity(model: Object, options?: { cascade?: boolean, entityClass?: Class }) {
+    const cascade = options?.cascade ?? false;
+    const entityClass = options?.entityClass;
+
+    if (cascade && this.cascadeManager) {
+      if(entityClass) {
+        Object.setPrototypeOf(model, entityClass.prototype);
+      }
+      const rest = await this.cascadeManager.cascadeDelete(model, model.constructor as Class);
+      return rest.operationCount;
+    }
+
+    // 原有删除逻辑
+    const meta = GetColumnMeta(model.constructor as Class);
     let res: number = 0;
     for (let i = 0; i < meta.length; i++) {
       if(meta[i].tag?.includes('primaryKey')) {
@@ -289,6 +390,9 @@ export class IBestORM {
     return res;
   }
 
+  /**
+   * 根据主键删除记录
+   */
   DeleteByKey(model: Class, keyValue: number|number[]): number {
     const table = GetTableName(model);
     const meta = GetColumnMeta(model);
@@ -301,9 +405,24 @@ export class IBestORM {
     return this.Table(table).Where(primaryKey, keyValue).Delete()
   }
 
-  Save(model: Object): number {
-    const table = GetTableName(model.constructor);
-    const meta = GetColumnMeta(model.constructor);
+  /**
+   * 保存实体记录（支持级联保存）
+   */
+  async Save(model: Object, options?: { cascade?: boolean, entityClass?: Class }): Promise<number> {
+    const cascade = options?.cascade ?? false;
+    const entityClass = options?.entityClass;
+
+    if (cascade && this.cascadeManager) {
+      if(entityClass) {
+        Object.setPrototypeOf(model, entityClass.prototype);
+      }
+      const rest = await this.cascadeManager.cascadeUpdate(model, model.constructor as Class);
+      return rest.operationCount;
+    }
+
+    // 原有保存逻辑
+    const table = GetTableName(model.constructor as Class);
+    const meta = GetColumnMeta(model.constructor as Class);
     let primaryKey = "id";
     let key = 0;
     let data: relationalStore.ValuesBucket = {};
@@ -325,6 +444,9 @@ export class IBestORM {
     return 0;
   }
 
+  /**
+   * 设置数据表
+   */
   Table(TableName: string) {
     this.tableName = TableName
     this.columns = []
@@ -332,13 +454,186 @@ export class IBestORM {
     return this
   }
 
+  /**
+   * 开始会话（设置实体类）
+   */
   Session(model: Class) {
     const table = GetTableName(model);
     this.tableName = table
     this.columns = []
     this.predicates = new relationalStore.RdbPredicates(this.tableName)
+
+    // 设置关联查询的实体类
+    if (this.relationExtension) {
+      this.relationExtension.setEntityClass(model);
+    }
+
     return this
   }
+  ///////////////////////////关联查询///////////////////////////
+  /**
+   * 预加载关联数据
+   */
+  With(relations: string | string[]) {
+    if (this.relationExtension) {
+      this.relationExtension.with(relations);
+    }
+    return this;
+  }
+
+  /**
+   * 预加载关联数据（别名方法）
+   */
+  Preload(relations: string | string[]) {
+    return this.With(relations);
+  }
+
+
+  /**
+   * 执行关联查询并返回第一条记录
+   */
+  async FirstWithRelations(Ref?: Object, FailureCall?: (msg: string) => void) {
+    if (this.relationExtension) {
+      try {
+        return await this.relationExtension.firstWithRelations(Ref);
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        this.error = errorMsg;
+        if (FailureCall) FailureCall(errorMsg);
+        return null;
+      }
+    }
+    return this.First(Ref, FailureCall);
+  }
+
+  /**
+   * 执行关联查询并返回所有记录
+   */
+  async FindWithRelations(FailureCall?: (msg: string) => void) {
+    if (this.relationExtension) {
+      try {
+        return await this.relationExtension.findWithRelations();
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        this.error = errorMsg;
+        if (FailureCall) FailureCall(errorMsg);
+        return [];
+      }
+    }
+    return this.Find(FailureCall);
+  }
+
+  /**
+   * 清空关联查询配置
+   */
+  //ClearRelations() {
+  //  if (this.relationExtension) {
+  //    this.relationExtension.clearRelations();
+  //  }
+  //  return this;
+  //}
+
+  /**
+   * 获取关联查询扩展实例
+   */
+  //GetRelationExtension(): RelationQueryExtension | null {
+  //  return this.relationExtension
+  //}
+
+  ///////////////////////////延迟加载///////////////////////////
+  /**
+   * 为实体启用延迟加载
+   * @param entity 实体对象
+   * @param entityClass 实体类（可选，如果不提供则从entity.constructor获取）
+   * @returns 延迟加载代理对象
+   */
+  EnableLazyLoading(entity: Object, entityClass?: Class): LazyLoadProxy {
+    if (!this.lazyLoadManager) {
+      throw new Error('延迟加载管理器未初始化');
+    }
+
+    const actualEntityClass = entityClass || (entity.constructor as Class);
+    return this.lazyLoadManager.createProxy(entity, actualEntityClass);
+  }
+
+  /**
+   * 加载关联数据
+   * @param proxy 延迟加载代理对象
+   * @param relationName 关联名称
+   * @param force 是否强制重新加载
+   * @returns 关联数据
+   */
+  LoadRelation(proxy: LazyLoadProxy, relationName: string, force: boolean = false) {
+    if (!this.lazyLoadManager) {
+      throw new Error('延迟加载管理器未初始化');
+    }
+
+    return this.lazyLoadManager.loadRelation(proxy, relationName, force);
+  }
+
+  /**
+   * 预加载关联数据（支持单个或多个）
+   * @param proxy 延迟加载代理对象
+   * @param relationName 关联名称（字符串或字符串数组）
+   */
+  async PreloadRelation(proxy: LazyLoadProxy, relationName: string | string[]): Promise<void> {
+    if (!this.lazyLoadManager) {
+      throw new Error('延迟加载管理器未初始化');
+    }
+
+    return this.lazyLoadManager.preloadRelation(proxy, relationName);
+  }
+
+  /**
+   * 重新加载关联数据（支持单个或多个）
+   * @param proxy 延迟加载代理对象
+   * @param relationName 关联名称（字符串或字符串数组）
+   * @returns 重新加载的关联数据（单个关联返回数据，多个关联返回数组）
+   */
+  ReloadRelation(proxy: LazyLoadProxy, relationName: string | string[]) {
+    if (!this.lazyLoadManager) {
+      throw new Error('延迟加载管理器未初始化');
+    }
+
+    return this.lazyLoadManager.reloadRelation(proxy, relationName);
+  }
+
+  /**
+   * 检查关联是否已加载
+   * @param proxy 延迟加载代理对象
+   * @param relationName 关联名称
+   * @returns 是否已加载
+   */
+  IsRelationLoaded(proxy: LazyLoadProxy, relationName: string): boolean {
+    return proxy.isRelationLoaded(relationName);
+  }
+
+  /**
+   * 获取已加载的关联数据（同步）
+   * @param proxy 延迟加载代理对象
+   * @param relationName 关联名称
+   * @returns 已加载的关联数据，如果未加载则返回undefined
+   */
+  GetLoadedRelation(proxy: LazyLoadProxy, relationName: string) {
+    return proxy.getLoadedRelation(relationName);
+  }
+
+  /**
+   * 清除延迟加载缓存
+   */
+  ClearLazyLoadCache(): void {
+    if (this.lazyLoadManager) {
+      this.lazyLoadManager.clearCache();
+    }
+  }
+
+  /**
+   * 获取延迟加载管理器
+   */
+  GetLazyLoadManager(): LazyLoadManager | null {
+    return this.lazyLoadManager;
+  }
+  ////////////////////////////////////////////////////////////
 
   Insert(Data: relationalStore.ValuesBucket|Array<relationalStore.ValuesBucket>) {
     if(this.notSetTableError()) return -1
@@ -359,7 +654,7 @@ export class IBestORM {
           let value = resultSet.columnNames[i]
           if((this.columns.length > 0 && this.columns.includes(value)) || this.columns.length == 0) {
             if(Ref) {
-              const meta = GetColumnMeta(Ref.constructor);
+              const meta = GetColumnMeta(Ref.constructor as Class);
               for (let j = 0; j < meta.length; j++) {
                 if(meta[j].name! == value) {
                   Model[meta[j].propertyKey!] = resultSet.getValue(resultSet.getColumnIndex(value))
@@ -388,7 +683,7 @@ export class IBestORM {
           let value = resultSet.columnNames[i]
           if((this.columns.length > 0 && this.columns.includes(value)) || this.columns.length == 0) {
             if(Ref) {
-              const meta = GetColumnMeta(Ref.constructor);
+              const meta = GetColumnMeta(Ref.constructor as Class);
               for (let j = 0; j < meta.length; j++) {
                 if(meta[j].name! == value) {
                   Model[meta[j].propertyKey!] = resultSet.getValue(resultSet.getColumnIndex(value))
