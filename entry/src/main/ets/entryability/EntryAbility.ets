@@ -1,7 +1,7 @@
 import { AbilityConstant, ConfigurationConstant, UIAbility, Want } from '@kit.AbilityKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { window } from '@kit.ArkUI';
-import { Examples, IBestORMInit } from '@ibestservices/ibest-orm';
+//import { Examples, IBestORMInit } from '@ibestservices/ibest-orm';
 import { relationalStore } from '@kit.ArkData';
 import { IBestInit } from '@ibestservices/ibest-ui';
 
@@ -31,6 +31,7 @@ export default class EntryAbility extends UIAbility {
       }
       hilog.info(DOMAIN, 'testTag', 'Succeeded in loading the content.');
       IBestInit(windowStage, this.context)
+      /*
       IBestORMInit(this.context, {
         name: "database.db",
         securityLevel: relationalStore.SecurityLevel.S1
@@ -39,6 +40,7 @@ export default class EntryAbility extends UIAbility {
         const test = new Examples()
         test.runAllExamples();
       })
+      */
     });
   }
 

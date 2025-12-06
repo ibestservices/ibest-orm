@@ -2,7 +2,7 @@
     <img src="https://ibestservices.github.io/ibest-ui/AppScope/resources/base/media/app_logo_trans.png" width="100">
 </p>
 
-<p align="center">IBest-ORM</p>
+<p align="center">IBest-ORM v2.0</p>
 
 <p align="center">轻量、易用的 HarmonyOS NEXT 数据库工具库</p>
 
@@ -11,7 +11,7 @@
     &nbsp;
     ·
     &nbsp;
-    <a href="https://github.com/ibestservices/ibest-orm" target="_blank">Github</a>
+    <a href="https://ohpm.openharmony.cn/#/cn/detail/@ibestservices%2Fibest-orm" target="_blank">三方库中心仓</a>
 </p>
 
 ---
@@ -21,21 +21,23 @@
 IBest-ORM 由 <a style="color:#0366d6;" href="https://www.ibestservices.com/" target="_blank">安徽百得思维信息科技有限公司</a>
 开源，是一个**轻量、简单易用、全功能、支持实体关联、事务、自动迁移**的鸿蒙开源 ORM 工具库, 上手简单，使用方便，可大大提高鸿蒙开发者的开发效率。
 
-## 特性
+## v2.0 新特性
+
 - 🗄️ **全功能 ORM** - 完整的对象关系映射功能
 - 🔗 **关联查询** - 支持关联，多态，单表继承
-- 📚 **丰富文档** - 提供详尽的中文文档和使用示例
+- 🎯 **全新 API** - 更简洁的初始化和查询 API
+- 🔍 **链式查询构建器** - 类型安全的 QueryBuilder
+- ✅ **数据验证** - 内置验证装饰器（@Required, @Length, @Email 等）
+- 🗑️ **软删除** - @SoftDelete 装饰器支持
+- 💾 **查询缓存** - 可配置的查询结果缓存
+- ⏰ **时间格式** - 可配置的时间戳格式（datetime, iso, timestamp 等）
+- 🌍 **错误国际化** - 中英文错误信息支持
+- 📝 **迁移日志** - 完整的迁移历史记录
+- 🏗️ **数据库约束** - 主键，联合主键，索引，约束完整支持
+- 🔄 **嵌套事务** - 支持事务深度跟踪
 - ⚡ **预加载支持** - 高效的数据预加载机制
-- 🔒 **事务管理** - 完整的事务支持，确保数据一致性
-- 📦 **批量操作** - 支持批量插入、更新、删除
-- 🏗️ **数据库约束** - 主键，索引，约束完整支持
-- 🔄 **自动迁移** - 智能的数据库结构迁移
-- ⛓️ **链式调用** - 优雅的方法链式调用语法
-- 🛡️ **类型安全** - 基于TypeScript的类型安全保障
-- 🎨 **装饰器支持** - 简洁的装饰器语法定义模型
-- ⚠️ **错误处理** - 完善的错误处理机制
-- ✅ **测试覆盖** - 每个特性都经过了测试的重重考验
-- 👨‍💻 **开发者友好** - 简单易用，上手快速
+- 🚀 **延迟加载** - 关联数据按需加载
+- ⚡ **级联操作** - 级联创建、更新、删除
 
 ## 下载安装
 
@@ -48,208 +50,281 @@ OpenHarmony ohpm 环境配置等更多内容，请参考[如何安装 OpenHarmon
 ## 快速上手
 
 ### 1. 初始化
-在应用启动时初始化IBest-ORM：
 
 ```ts
-import { IBestORMInit } from '@ibestservices/ibest-orm';
+import { initORM, createRelationalStoreAdapter } from '@ibestservices/ibest-orm';
 
 onWindowStageCreate(windowStage: window.WindowStage): void {
-  windowStage.loadContent('pages/Index', (err, data) => {
-    // 初始化IBest-ORM
-    IBestORMInit(this.context, {
-        name: "database.db",
-        securityLevel: relationalStore.SecurityLevel.S1
-    })
-  })
+  // 创建适配器
+  const adapter = await createRelationalStoreAdapter(this.context, {
+    name: 'app.db',
+    securityLevel: relationalStore.SecurityLevel.S1
+  });
+  // 初始化 ORM
+  initORM({ adapter, logLevel: 'debug' });
+  windowStage.loadContent('pages/Index');
 }
 ```
 
 ### 2. 定义模型
-使用装饰器定义数据模型：
 
 ```ts
-import { Table, Field, FieldType, Model } from '@ibestservices/ibest-orm';
+import { Table, Column, PrimaryKey, NotNull, CreatedAt, UpdatedAt } from '@ibestservices/ibest-orm';
 
-@Table
-export class User extends Model {
-  /**
-   * 名字
-   */
-  @Field({ type: FieldType.TEXT })
-  Name?: string
-  /**
-   * 年龄
-   */
-  @Field({ type: FieldType.INTEGER })
-  Age?: number
+@Table()
+export class User {
+  @PrimaryKey()
+  id?: number;
 
-  constructor(name: string, age: number) {
-    super();
-    this.Name = name
-    this.Age = age
-  }
+  @Column()
+  @NotNull()
+  name?: string;
+
+  @Column()
+  age?: number;
+
+  @CreatedAt()
+  createdAt?: string;
+
+  @UpdatedAt()
+  updatedAt?: string;
 }
 ```
 
 ### 3. 基本使用
+
 ```ts
-import { GetIBestORM } from '@ibestservices/ibest-orm';
-import { relationalStore } from '@kit.ArkData';
+import { getORM } from '@ibestservices/ibest-orm';
 
 @Entry
 @Component
 export struct DemoPage {
-  private db = GetIBestORM();
+  onPageShow() {
+    const orm = getORM();
 
-  onPageShow(){
-    // 自动迁移表结构
-    this.db.AutoMigrate(User);
-    
+    // 同步表结构
+    orm.sync(User);
+
     // 创建记录
-    const user = new User("zhangsan", 18);
-    this.db.Create(user);
+    const user = new User();
+    user.name = '张三';
+    user.age = 18;
+    orm.insert(user);
 
-    // 使用ValuesBucket插入
-    const valueBucket: relationalStore.ValuesBucket = {
-      Name: 'ming',
-      Age: 18,
-    };
-    this.db.Table("User").Insert(valueBucket);
-    
     // 查询数据
-    let result = this.db.Table("User").Where('age', 18).Find();
-    
+    const users = orm.query(User)
+      .where({ age: { gte: 18 } })
+      .orderBy('createdAt', 'desc')
+      .find();
+
     // 更新数据
-    this.db.Table("User").Where('name', 'ming').Update({ age: 20 });
-    
+    orm.query(User)
+      .where({ id: 1 })
+      .update({ age: 20 });
+
     // 删除数据
-    this.db.Table("User").Where('id', 1).Delete();
+    orm.deleteById(User, 1);
   }
 
-  build(){}
+  build() {}
 }
 ```
 
 ## 核心功能
 
 ### 🔍 查询操作
+
 ```ts
+const orm = getORM();
+
 // 条件查询
-this.db.Table("User").Where('age', 18).Find();
-this.db.Table("User").Where('name', 'like', '张%').Find();
-this.db.Table("User").Between('age', 18, 25).Find();
+orm.query(User).where({ age: 18 }).find();
+orm.query(User).where({ name: { like: '张%' } }).find();
+orm.query(User).whereBetween('age', 18, 25).find();
 
 // 排序和分页
-this.db.Table("User").OrderByDesc('age').Limit(10).Offset(0).Find();
+orm.query(User).orderBy('age', 'desc').limit(10).offset(0).find();
 
 // 选择字段
-this.db.Table("User").Select(['name', 'age']).Find();
+orm.query(User).select('name', 'age').find();
+
+// 聚合查询
+orm.query(User).count();
+orm.query(User).where({ status: 'active' }).exists();
 ```
 
 ### ✏️ 更新操作
+
 ```ts
 // 条件更新
-this.db.Table("User").Where('id', 1).Update({ name: 'newName' });
+orm.query(User).where({ id: 1 }).update({ name: '李四' });
 
-// 选择性更新
-this.db.Table("User").Select(['name']).Where('id', 1).Update({ name: 'John', age: 25 });
+// 实体更新
+const user = orm.query(User).where({ id: 1 }).first();
+user.name = '王五';
+orm.save(user);
 ```
 
 ### 🗑️ 删除操作
+
 ```ts
 // 条件删除
-this.db.Table("User").Where('age', '<', 18).Delete();
+orm.query(User).where({ age: { lt: 18 } }).delete();
 
 // 根据主键删除
-this.db.DeleteByKey(User, 1);
-this.db.DeleteByKey(User, [1, 2, 3]); // 批量删除
+orm.deleteById(User, 1);
+orm.deleteById(User, [1, 2, 3]);  // 批量删除
 ```
 
 ### 🔄 事务管理
+
 ```ts
-this.db.Begin();
+// 回调式事务（推荐）
+orm.transaction(() => {
+  orm.insert(user1);
+  orm.insert(user2);
+  // 自动提交，出错自动回滚
+});
+
+// 手动事务
+orm.beginTransaction();
 try {
-  this.db.Create(user1);
-  this.db.Create(user2);
-  this.db.Commit();
+  orm.insert(user1);
+  orm.insert(user2);
+  orm.commit();
 } catch (error) {
-  this.db.Rollback();
+  orm.rollback();
 }
 ```
 
 ### 🔧 数据库迁移
-```ts
-// 自动迁移
-this.db.AutoMigrate(User);
 
-// 手动迁移
-this.db.Migrator().CreateTable(User);
-this.db.Migrator().AddColumn(User);
-this.db.Migrator().HasTable(User);
+```ts
+// 自动迁移（创建表、新增/删除/修改字段）
+orm.sync(User);
+
+// 查看迁移日志
+const logs = orm.getMigrationLogs();
 ```
 
 ## 高级特性
 
-### 🏷️ 字段标签
-IBest-ORM 支持丰富的字段标签来定义数据库约束：
+### ✅ 数据验证
 
 ```ts
-@Table
-export class User extends Model {
-  @Field({ 
-    type: FieldType.INTEGER, 
-    tag: ['primaryKey', 'autoIncrement', 'notNull'] 
-  })
-  ID?: number
+import { Required, Length, Email, Min, Max } from '@ibestservices/ibest-orm';
 
-  @Field({ 
-    type: FieldType.TEXT, 
-    name: 'user_name',
-    tag: ['notNull'] 
-  })
-  Name?: string
+@Table()
+class User {
+  @PrimaryKey()
+  id?: number;
 
-  @Field({ 
-    type: FieldType.TEXT, 
-    tag: ['autoCreateTime', 'notNull'] 
-  })
-  CreatedAt?: string
+  @Column()
+  @Required()
+  @Length(2, 20)
+  name?: string;
+
+  @Column()
+  @Email()
+  email?: string;
+
+  @Column()
+  @Min(0)
+  @Max(150)
+  age?: number;
 }
 ```
 
-**支持的标签：**
-- `primaryKey` - 定义为主键
-- `notNull` - 字段不为空
-- `autoIncrement` - 自增列
-- `autoCreateTime` - 追踪创建时间
-- `autoUpdateTime` - 追踪更新时间
-
-### 🔗 方法链式调用
-IBest-ORM 支持优雅的链式调用语法：
+### 🗑️ 软删除
 
 ```ts
-// 复杂查询示例
-let users = this.db.Table("User")
-  .Where('age', '>=', 18)
-  .Where('status', 'active')
-  .Or()
-  .Where('vip_level', '>', 3)
-  .OrderByDesc('created_at')
-  .Select(['name', 'age', 'email'])
-  .Limit(20)
-  .Offset(0)
-  .Find();
+import { SoftDelete } from '@ibestservices/ibest-orm';
+
+@Table()
+class Article {
+  @PrimaryKey()
+  id?: number;
+
+  @SoftDelete()
+  deletedAt?: string;
+}
+
+// 软删除
+orm.query(Article).where({ id: 1 }).delete();
+
+// 查询包含已删除
+orm.query(Article).withTrashed().find();
+
+// 恢复
+orm.query(Article).where({ id: 1 }).restore();
 ```
 
-### ⚠️ 错误处理
+### 🔗 关联查询
+
 ```ts
-// 检查操作是否成功
-this.db.Create(user);
-if (this.db.GetError()) {
-  console.error('创建用户失败:', this.db.GetError());
-} else {
-  console.log('用户创建成功');
+import { HasMany, BelongsTo } from '@ibestservices/ibest-orm';
+
+@Table()
+class Author {
+  @PrimaryKey()
+  id?: number;
+
+  @HasMany(() => Book, 'authorId')
+  books?: Book[];
 }
+
+@Table()
+class Book {
+  @PrimaryKey()
+  id?: number;
+
+  @Column()
+  authorId?: number;
+
+  @BelongsTo(() => Author, 'authorId')
+  author?: Author;
+}
+
+// 预加载关联
+const authors = orm.query(Author).with('books').find();
+```
+
+### 💾 查询缓存
+
+```ts
+import { initQueryCache, getQueryCache } from '@ibestservices/ibest-orm';
+
+// 初始化缓存
+initQueryCache({ maxSize: 100, ttl: 60000 });
+
+const cache = getQueryCache();
+
+// 缓存查询结果
+const users = cache.get('active_users', () => {
+  return orm.query(User).where({ status: 'active' }).find();
+});
+
+// 清除缓存
+cache.invalidate('user');  // 清除 user 表相关缓存
+```
+
+### ⏰ 时间格式配置
+
+```ts
+import { setTimeFormat } from '@ibestservices/ibest-orm';
+
+setTimeFormat('datetime');   // 2024-01-01 12:00:00
+setTimeFormat('iso');        // 2024-01-01T12:00:00.000Z
+setTimeFormat('timestamp');  // 1704067200000
+```
+
+### 🌍 错误国际化
+
+```ts
+import { setErrorLocale } from '@ibestservices/ibest-orm';
+
+setErrorLocale('zh');  // 中文错误信息
+setErrorLocale('en');  // 英文错误信息
 ```
 
 ## 使用注意事项

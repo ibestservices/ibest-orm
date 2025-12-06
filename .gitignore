@@ -10,3 +10,6 @@
 /.clang-tidy
 **/.test
 /.appanalyzer
+/.claude
+/.codebuddy
+/.vscode

@@ -1,148 +1,60 @@
-import { Table, Field, FieldType, Model, GetIBestORM } from '@ibestservices/ibest-orm';
-import { IBestButton, IBestDialogUtil, IBestLoading, IBestNotify, IBestTable, IBestTableColumn, IBestTableColumnData} from '@ibestservices/ibest-ui';
-import { relationalStore } from '@kit.ArkData';
+/**
+ * 测试导航首页
+ */
+import { router } from '@kit.ArkUI';
 
-@Table
-export class Apps extends Model {
-  @Field({ type: FieldType.TEXT })
-  Name?: string
-
-  @Field({ type: FieldType.TEXT })
-  Desc?: string
-
-  constructor(name: string, desc: string) {
-    super();
-    this.Name = name
-    this.Desc = desc
-  }
+interface TestItem {
+  title: string;
+  desc: string;
+  page: string;
 }
 
-const TAG = "IBestORM"
-
-let storage = LocalStorage.getShared()
-
-@Entry(storage)
+@Entry
 @Component
 struct Index {
-  @State tableId: string = "table"
-  @State data: Record<string, relationalStore.ValueType>[] = []
-  @LocalStorageProp('IBestReady') @Watch('onReady') IBestReady: boolean = false;
-  private db = GetIBestORM();
-
-  onReady() {
-    if(this.IBestReady) {
-      this.db = GetIBestORM();
-      this.db.AutoMigrate(Apps);
-      const error = this.db.GetError();
-      if(error) {
-        IBestNotify.show({
-          message: '创建数据库失败',
-          color: '#ad0000',
-          backgroundColor: '#ffe1e1',
-          duration: 3000
-        })
-        console.log(TAG, error);
-      } else {
-        this.data = this.db.Table("apps").Find();
-      }
-    }
-  }
-
-  reload() {
-    this.IBestReady = false;
-    setTimeout(() => {
-      this.data = this.db.Table("apps").Find();
-      this.IBestReady = true;
-    }, 500)
-  }
-
-  @Builder customCell(row: Record<string, relationalStore.ValueType>, column: IBestTableColumnData, rowIndex: number, columnIndex: number){
-    IBestButton({
-      type: "danger",
-      buttonSize: 'small',
-      text: "删除",
-      onBtnClick: () => {
-        if(this.db.DeleteByKey(Apps, row.id as number)) {
-          this.reload()
-        }
-      }
-    })
-  }
+  private testItems: TestItem[] = [
+    { title: '单元测试 (Memory)', desc: 'MemoryAdapter 快速测试 ORM 核心功能', page: 'pages/ORMNextTest' },
+    { title: '单元测试 (RdbStore)', desc: 'RdbStore 适配器测试 ORM 功能', page: 'pages/RdbStoreTest' },
+    { title: '集成测试', desc: 'RdbStore 完整业务流程 + 性能测试', page: 'pages/IntegrationTest' }
+  ];
 
   build() {
-    Column({space: 20}){
-      if(!this.IBestReady) {
-        Row() {
-          IBestLoading({
-            loadingSize: 80,
-            loadingText: "加载中...",
-            loadingColor: "rgb(25, 137, 250)",
-            loadingTextColor: "rgb(25, 137, 250)"
-          })
-        }.height('100%').width('100%')
-        .justifyContent(FlexAlign.Center)
-      } else {
-        Row({space: 8}) {
-          IBestButton({
-            type: "primary",
-            text: "插入数据",
-            onBtnClick: async () => {
-              const apps = [new Apps("IBest-UI", "鸿蒙开源UI组件库"), new Apps("IBest-ORM", "鸿蒙开源ORM工具库")];
-              const rowId = await this.db.Create(apps)
-              if (rowId) this.reload()
-            }
-          })
-          IBestButton({
-            type: "primary",
-            text: "删除数据",
-            onBtnClick: () => {
-              if(this.db.Session(Apps).Delete()) {
-                this.reload()
-              }
-            }
-          })
-          IBestButton({
-            type: "primary",
-            text: "IBest-UI",
-            onBtnClick: () => {
-              const app = new Apps("","");
-              this.db.Table('apps').Where('name', 'IBest-UI').First(app);
-              if(app.ID) {
-                IBestDialogUtil.open({
-                  message: JSON.stringify(app)
-                })
-              }
-            }
-          })
-          IBestButton({
-            type: "primary",
-            text: "IBest-ORM",
-            onBtnClick: () => {
-              const app = new Apps("","");
-              this.db.Table('apps').Where('name', 'IBest-ORM').First(app);
-              if(app.ID) {
-                IBestDialogUtil.open({
-                  message: JSON.stringify(app)
-                })
-              }
-            }
-          })
-        }
+    Column() {
+      Text('IBest-ORM v2.0 测试')
+        .fontSize(28)
+        .fontWeight(FontWeight.Bold)
+        .margin({ top: 40, bottom: 30 })
 
-        IBestTable({ tableId: this.tableId, data: this.data }) {
-          IBestTableColumn({ tableId: this.tableId, title: "ID", prop: "id", cellWidth: 30 })
-          IBestTableColumn({ tableId: this.tableId, title: "名称", prop: "name" })
-          IBestTableColumn({ tableId: this.tableId, title: "描述", prop: "desc" })
-          IBestTableColumn({ tableId: this.tableId, title: "创建时间", prop: "created_at" })
-          IBestTableColumn({ tableId: this.tableId, title: "更新时间", prop: "updated_at" })
-          IBestTableColumn({
-            tableId: this.tableId,
-            title: "操作",
-            cellWidth: 90,
-            cellBuilder: (row: Record<string, relationalStore.ValueType>, column: IBestTableColumnData, rowIndex: number, columnIndex: number): void => this.customCell(row, column, rowIndex, columnIndex)
-          })
+      Text('选择测试类型')
+        .fontSize(16)
+        .fontColor('#666')
+        .margin({ bottom: 20 })
+
+      ForEach(this.testItems, (item: TestItem) => {
+        Column() {
+          Text(item.title)
+            .fontSize(20)
+            .fontWeight(FontWeight.Medium)
+            .fontColor('#333')
+
+          Text(item.desc)
+            .fontSize(14)
+            .fontColor('#666')
+            .margin({ top: 8 })
         }
-      }
+        .width('90%')
+        .padding(20)
+        .margin({ bottom: 15 })
+        .backgroundColor('#f5f5f5')
+        .borderRadius(12)
+        .alignItems(HorizontalAlign.Start)
+        .onClick(() => {
+          router.pushUrl({ url: item.page });
+        })
+      })
     }
+    .width('100%')
+    .height('100%')
+    .backgroundColor('#fff')
   }
 }
