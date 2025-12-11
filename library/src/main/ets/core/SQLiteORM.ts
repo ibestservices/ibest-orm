@@ -343,8 +343,9 @@ export class IBestORM {
         let tmp: relationalStore.ValuesBucket = {}
         for (let j = 0; j < meta.length; j++) {
           const key = meta[j].propertyKey!
-          if((this.columns.length > 0 && this.columns.includes(camelToSnakeCase(key))) || this.columns.length == 0) {
-            tmp[key] = model[i][key];
+          const name = camelToSnakeCase(key)
+          if((this.columns.length > 0 && this.columns.includes(name)) || this.columns.length == 0) {
+            tmp[name] = model[i][key];
           }
         }
         values.push(tmp)
@@ -354,8 +355,9 @@ export class IBestORM {
       const meta = GetColumnMeta(model.constructor as Class);
       for (let i = 0; i < meta.length; i++) {
         const key = meta[i].propertyKey!
-        if((this.columns.length > 0 && this.columns.includes(camelToSnakeCase(key))) || this.columns.length == 0) {
-          values[key] = (model as relationalStore.ValuesBucket)[key]
+        const name = camelToSnakeCase(key)
+        if((this.columns.length > 0 && this.columns.includes(name)) || this.columns.length == 0) {
+          values[name] = (model as relationalStore.ValuesBucket)[key]
         }
       }
     }
