@@ -105,12 +105,16 @@ export class MemoryAdapter extends BaseAdapter {
 
   private parseCreateTable(sql: string): void {
     const match = sql.match(/CREATE TABLE IF NOT EXISTS (\w+)\s*\((.+)\)/i);
-    if (!match) return;
+    if (!match) {
+      return;
+    }
 
     const tableName = match[1].toLowerCase();
     const columnsDef = match[2];
 
-    if (this.tables.has(tableName)) return;
+    if (this.tables.has(tableName)) {
+      return;
+    }
 
     const schema: TableSchema = {
       columns: new Map(),
@@ -212,8 +216,11 @@ export class MemoryAdapter extends BaseAdapter {
   }
 
   insert(tableName: string, values: ValuesBucket): number {
-    const table = this.tables.get(tableName.toLowerCase());
-    if (!table) return -1;
+    const lowerTableName = tableName.toLowerCase();
+    const table = this.tables.get(lowerTableName);
+    if (!table) {
+      return -1;
+    }
 
     // 将 values 的 key 转为小写映射
     const lowerValues: ValuesBucket = {};

@@ -305,7 +305,7 @@ class TestRunner {
       });
 
       this.it('migrate 创建表', () => {
-        orm.migrate(TUser, TPost, TComment, TAuthor, TBook);
+        orm.migrate(TUser, TPost, TComment, TAuthor, TBook, TValidatedUser, TLengthUser, TRangeUser);
         this.assertTrue(true);
       });
 
@@ -501,33 +501,7 @@ class TestRunner {
       });
     });
 
-    this.describe('关联查询测试', () => {
-      this.it('HasMany 预加载', () => {
-        const author = new TAuthor();
-        author.name = '作者A';
-        const authorId = orm.insert(author);
-
-        const book1 = new TBook();
-        book1.title = '书籍1';
-        book1.authorId = authorId;
-        orm.insert(book1);
-
-        const book2 = new TBook();
-        book2.title = '书籍2';
-        book2.authorId = authorId;
-        orm.insert(book2);
-
-        const authors = orm.query(TAuthor).with('books').find();
-        this.assertTrue(authors.length > 0);
-        this.assertGreaterThan(authors[0]?.books?.length ?? 0, 0);
-      });
-
-      this.it('BelongsTo 预加载', () => {
-        const books = orm.query(TBook).with('author').find();
-        this.assertTrue(books.length > 0);
-        this.assertTrue(books[0]?.author !== undefined);
-      });
-    });
+    // 关联测试移到 runRelationTests
 
     this.describe('验证器测试', () => {
       this.it('Required 验证', () => {
@@ -655,22 +629,6 @@ class TestRunner {
       });
     });
 
-    this.describe('嵌套预加载测试', () => {
-      this.it('多层关联预加载', () => {
-        const authors = orm.query(TAuthor).with('books').find();
-        this.assertTrue(authors.length > 0);
-        const hasBooks = authors.some(a => (a.books?.length ?? 0) > 0);
-        this.assertTrue(hasBooks);
-      });
-
-      this.it('多个关联同时预加载', () => {
-        const books = orm.query(TBook).with('author').find();
-        this.assertTrue(books.length > 0);
-        const hasAuthor = books.some(b => b.author !== undefined);
-        this.assertTrue(hasAuthor);
-      });
-    });
-
     this.describe('复杂查询测试', () => {
       this.it('多条件 AND 查询', () => {
         const users = orm.query(TUser).where({ age: { gte: 20 } }).where({ age: { lte: 50 } }).find();
@@ -697,6 +655,7 @@ class TestRunner {
         this.assertTrue(count >= 0);
       });
     });
+
   }
 
   getStats(): TestStats {

@@ -2,12 +2,13 @@
  * 核心 ORM 类
  */
 
-import { Class, ORMConfig, LogLevel, ColumnType, ValueType, ValuesBucket } from '../types';
+import { Class, ORMConfig, LogLevel, ColumnType, ValueType, ValuesBucket, RelationType } from '../types';
 import { metadataStorage, EntityMetadata, ColumnMetadata } from '../types/metadata';
 import { DatabaseAdapter } from '../adapter/BaseAdapter';
 import { MemoryAdapter } from '../adapter/MemoryAdapter';
 import { createRelationalStoreAdapter } from '../adapter/RelationalStoreAdapter';
 import { QueryBuilder } from '../query/QueryBuilder';
+import { CascadeHandler } from '../relation/CascadeHandler';
 import { ORMError, ErrorCode } from '../error';
 import { Logger, getLogger } from '../logger';
 import { classToTable, getLocalTimeString } from '../utils';
@@ -33,9 +34,11 @@ export class ORM {
   private logger: Logger;
   private migrationLogs: MigrationLog[] = [];
   private transactionDepth: number = 0;
+  private cascadeHandler: CascadeHandler;
 
   constructor(adapter: DatabaseAdapter, config: ORMConfig = {}) {
     this.adapter = adapter;
+    this.cascadeHandler = new CascadeHandler(adapter);
     this.config = {
       name: config.name || 'app.db',
       debug: config.debug || false,
@@ -66,6 +69,44 @@ export class ORM {
   migrate(...entities: Class[]): void {
     for (const entity of entities) {
       this.migrateEntity(entity);
+    }
+    // 自动创建 ManyToMany 中间表
+    this.migrateManyToManyTables(entities);
+  }
+
+  /**
+   * 创建 ManyToMany 关联的中间表
+   */
+  private migrateManyToManyTables(entities: Class[]): void {
+    const createdTables = new Set<string>();
+
+    for (const entity of entities) {
+      const metadata = metadataStorage.getEntityMetadata(entity);
+      if (!metadata) continue;
+
+      for (const relation of metadata.relations) {
+        if (relation.type !== RelationType.ManyToMany) continue;
+        if (!relation.through || typeof relation.through !== 'string') continue;
+
+        const tableName = relation.through;
+        if (createdTables.has(tableName)) continue;
+
+        // 检查表是否存在
+        const checkSql = `SELECT name FROM sqlite_master WHERE type = 'table' AND name = '${tableName}'`;
+        const result = this.adapter.query(checkSql);
+        const tableExists = result.rowCount > 0;
+        result.close();
+
+        if (!tableExists) {
+          const fk1 = relation.throughForeignKey || 'source_id';
+          const fk2 = relation.throughOtherKey || 'target_id';
+          const createSql = `CREATE TABLE IF NOT EXISTS ${tableName} (${fk1} INTEGER NOT NULL, ${fk2} INTEGER NOT NULL, PRIMARY KEY (${fk1}, ${fk2}))`;
+          this.adapter.executeSqlSync(createSql);
+          this.logMigration({ tableName, action: 'create_table', sql: createSql });
+        }
+
+        createdTables.add(tableName);
+      }
     }
   }
 
@@ -100,6 +141,76 @@ export class ORM {
     }
 
     return this.insertSingle(entity);
+  }
+
+  /**
+   * 级联插入实体（同时插入关联数据）
+   * 需要在关联装饰器中配置 cascade: [CascadeType.Create]
+   */
+  insertWithRelations<T extends object>(entity: T): number {
+    const entityClass = entity.constructor as Class<T>;
+    const metadata = metadataStorage.getEntityMetadata(entityClass);
+
+    const id = this.insertSingle(entity);
+    if (id > 0 && metadata) {
+      this.cascadeHandler.cascadeCreate(entity, metadata);
+    }
+    return id;
+  }
+
+  /**
+   * 级联保存实体（同时保存关联数据）
+   * 需要在关联装饰器中配置 cascade: [CascadeType.Create] 或 [CascadeType.Update]
+   */
+  saveWithRelations<T extends object>(entity: T): number {
+    const entityClass = entity.constructor as Class<T>;
+    const metadata = metadataStorage.getEntityMetadata(entityClass);
+
+    if (!metadata?.primaryKey) {
+      const id = this.insertSingle(entity);
+      if (id > 0 && metadata) {
+        this.cascadeHandler.cascadeCreate(entity, metadata);
+      }
+      return id;
+    }
+
+    const pkValue = (entity as Record<string, unknown>)[metadata.primaryKey.propertyKey];
+    if (pkValue) {
+      const count = this.updateSingle(entity);
+      this.cascadeHandler.cascadeUpdate(entity, metadata);
+      return count;
+    }
+
+    const id = this.insertSingle(entity);
+    if (id > 0) {
+      this.cascadeHandler.cascadeCreate(entity, metadata);
+    }
+    return id;
+  }
+
+  /**
+   * 级联删除实体（同时删除关联数据）
+   * 需要在关联装饰器中配置 cascade: [CascadeType.Delete]
+   */
+  deleteWithRelations<T extends object>(entity: T): number {
+    const entityClass = entity.constructor as Class<T>;
+    const metadata = metadataStorage.getEntityMetadata(entityClass);
+    const tableName = metadata?.table.name || classToTable(entityClass.name);
+
+    if (!metadata?.primaryKey) {
+      throw new ORMError({
+        code: ErrorCode.PRIMARY_KEY_MISSING,
+        table: tableName,
+        suggestion: '级联删除需要实体定义主键'
+      });
+    }
+
+    // 先级联删除关联数据
+    this.cascadeHandler.cascadeDelete(entity, metadata);
+
+    // 再删除主实体
+    const pkValue = (entity as Record<string, unknown>)[metadata.primaryKey.propertyKey];
+    return this.adapter.delete(tableName, `${metadata.primaryKey.name} = ?`, [pkValue as ValueType]);
   }
 
   /**
@@ -441,7 +552,6 @@ export class ORM {
     if (!tableExists) {
       // 创建表
       const createSql = this.buildCreateTableSQL(tableName, metadata);
-      this.logger.debug(`创建表: ${createSql}`);
       this.adapter.executeSqlSync(createSql);
       this.logMigration({ tableName, action: 'create_table', sql: createSql });
     } else {

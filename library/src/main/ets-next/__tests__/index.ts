@@ -23,3 +23,4 @@ export function runAllTests() {
 export { runUtilsTests, runORMTests };
 export { runAllIntegrationTests, runIntegrationTests, runPerformanceTests };
 export type { IntegrationTestStats, PerformanceResult } from './integration.test';
+export { RelationTestResult, RelationTestSuite, RelationTestStats, runRelationTests, getRelationTestStats } from './RelationTest';

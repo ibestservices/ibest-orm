@@ -15,6 +15,7 @@ struct Index {
   private testItems: TestItem[] = [
     { title: '单元测试 (Memory)', desc: 'MemoryAdapter 快速测试 ORM 核心功能', page: 'pages/ORMNextTest' },
     { title: '单元测试 (RdbStore)', desc: 'RdbStore 适配器测试 ORM 功能', page: 'pages/RdbStoreTest' },
+    { title: '级联测试 (RdbStore)', desc: 'RdbStore 级联操作测试', page: 'pages/RelationTest' },
     { title: '集成测试', desc: 'RdbStore 完整业务流程 + 性能测试', page: 'pages/IntegrationTest' }
   ];
 

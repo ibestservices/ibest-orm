@@ -78,3 +78,4 @@ export { QueryCache, CacheConfig, getQueryCache, initQueryCache } from './cache'
 // 测试
 export { runAllTests, getTestStats, TestResult, TestSuite, TestStats } from './__tests__/TestRunner';
 export { runAllIntegrationTests, runIntegrationTests, runPerformanceTests, IntegrationTestStats, PerformanceResult } from './__tests__/integration.test';
+export { RelationTestResult, RelationTestSuite, RelationTestStats, runRelationTests, getRelationTestStats } from './__tests__';

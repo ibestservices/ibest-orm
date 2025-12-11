@@ -12,9 +12,10 @@ export function camelToSnake(str: string): string {
   if (!str) return '';
 
   return str
-    .replace(/^[A-Z]+$/, match => match.toLowerCase())
-    .replace(/(?<!^)([A-Z])/g, '_$1')
+    // 处理连续大写后跟小写: XMLParser -> XML_Parser
     .replace(/([A-Z]+)([A-Z][a-z])/g, '$1_$2')
+    // 处理小写后跟大写: createdAt -> created_At, userID -> user_ID
+    .replace(/([a-z])([A-Z])/g, '$1_$2')
     .toLowerCase();
 }
 

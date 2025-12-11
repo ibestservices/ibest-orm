@@ -426,6 +426,18 @@ export class QueryBuilder<T = unknown> {
   }
 
   /**
+   * 强制物理删除（忽略软删除配置）
+   */
+  forceDelete(): number {
+    this.ensureTable();
+
+    // 临时包含已删除记录，确保能删除软删除的数据
+    this.includeTrashed = true;
+    const whereClause = this.buildWhereClause();
+    return this.adapter.delete(this.tableName, whereClause.sql.replace(' WHERE ', ''), whereClause.params);
+  }
+
+  /**
    * 重置查询条件
    */
   reset(): this {

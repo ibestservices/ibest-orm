@@ -3,6 +3,7 @@
     "pages/Index",
     "pages/ORMNextTest",
     "pages/IntegrationTest",
-    "pages/RdbStoreTest"
+    "pages/RdbStoreTest",
+    "pages/RelationTest"
   ]
 }
