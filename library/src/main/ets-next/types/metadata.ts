@@ -69,6 +69,7 @@ export const METADATA_KEY = {
  */
 class MetadataStorage {
   private entities: Map<Class, EntityMetadata> = new Map();
+  private entitiesByName: Map<string, EntityMetadata> = new Map();
 
   /**
    * 注册表元数据
@@ -76,6 +77,8 @@ class MetadataStorage {
   setTableMetadata(target: Class, metadata: TableMetadata): void {
     const entity = this.getOrCreateEntity(target);
     entity.table = metadata;
+    // 同时按类名索引，支持装饰器包装类的查找
+    this.entitiesByName.set(target.name, entity);
   }
 
   /**
@@ -120,9 +123,20 @@ class MetadataStorage {
 
   /**
    * 获取实体元数据
+   * 支持按类引用查找，如果找不到则按类名查找（兼容 @ObservedV2 等装饰器包装类）
    */
   getEntityMetadata(target: Class): EntityMetadata | undefined {
-    return this.entities.get(target);
+    // 优先按类引用查找
+    let entity = this.entities.get(target);
+    if (entity) return entity;
+    // 按类名查找（兼容装饰器包装类）
+    entity = this.entitiesByName.get(target.name);
+    if (entity) {
+      // 缓存到 entities 中，避免重复查找
+      this.entities.set(target, entity);
+      return entity;
+    }
+    return undefined;
   }
 
   /**
@@ -131,6 +145,14 @@ class MetadataStorage {
   private getOrCreateEntity(target: Class): EntityMetadata {
     let entity = this.entities.get(target);
     if (!entity) {
+      // 先尝试按类名查找已存在的元数据（可能由其他装饰器先注册）
+      entity = this.entitiesByName.get(target.name);
+      if (entity) {
+        // 将已存在的元数据也关联到当前类引用
+        this.entities.set(target, entity);
+        return entity;
+      }
+      // 创建新的元数据
       entity = {
         table: { name: '', className: target.name },
         columns: [],
@@ -138,6 +160,7 @@ class MetadataStorage {
         primaryKeys: []
       };
       this.entities.set(target, entity);
+      this.entitiesByName.set(target.name, entity);
     }
     return entity;
   }
@@ -174,6 +197,7 @@ class MetadataStorage {
    */
   clear(): void {
     this.entities.clear();
+    this.entitiesByName.clear();
     this.pendingNotNull.clear();
   }
 }

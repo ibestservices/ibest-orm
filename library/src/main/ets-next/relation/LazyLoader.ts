@@ -137,13 +137,18 @@ function parseRow(
   meta: EntityMetadata,
   targetClass: Class
 ): object {
-  const row: Record<string, unknown> = {};
+  // 使用构造函数创建实例，确保与鸿蒙状态管理装饰器兼容
+  let row: Record<string, unknown>;
+  try {
+    row = new targetClass() as Record<string, unknown>;
+  } catch {
+    row = Object.create(targetClass.prototype);
+  }
   for (let i = 0; i < result.columnNames.length; i++) {
     const colName = result.columnNames[i];
     const propKey = meta.columns.find(c => c.name === colName)?.propertyKey || colName;
     row[propKey] = result.getValue(i);
   }
-  Object.setPrototypeOf(row, targetClass.prototype);
   return row;
 }
 

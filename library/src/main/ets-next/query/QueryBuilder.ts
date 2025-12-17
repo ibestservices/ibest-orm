@@ -607,17 +607,23 @@ export class QueryBuilder<T = unknown> {
 
     if (resultSet.rowCount > 0 && resultSet.goToFirstRow()) {
       while (!resultSet.isEnded) {
-        const row: Record<string, unknown> = {};
+        // 使用构造函数创建实例，确保与鸿蒙状态管理装饰器（@ObservedV2、@Trace）兼容
+        let row: Record<string, unknown>;
+        if (this.entityClass) {
+          try {
+            row = new this.entityClass() as Record<string, unknown>;
+          } catch {
+            // 构造函数可能需要参数，回退到原型链方式
+            row = Object.create(this.entityClass.prototype);
+          }
+        } else {
+          row = {};
+        }
 
         for (let i = 0; i < resultSet.columnNames.length; i++) {
           const columnName = resultSet.columnNames[i];
           const propertyKey = this.toPropertyKey(columnName);
           row[propertyKey] = resultSet.getValue(i);
-        }
-
-        // 设置原型链，确保 constructor 指向正确的类
-        if (this.entityClass) {
-          Object.setPrototypeOf(row, this.entityClass.prototype);
         }
 
         // 启用延迟加载
@@ -747,13 +753,18 @@ export class QueryBuilder<T = unknown> {
 
     if (resultSet.rowCount > 0 && resultSet.goToFirstRow()) {
       while (!resultSet.isEnded) {
-        const row: Record<string, unknown> = {};
+        // 使用构造函数创建实例，确保与鸿蒙状态管理装饰器兼容
+        let row: Record<string, unknown>;
+        try {
+          row = new targetClass() as Record<string, unknown>;
+        } catch {
+          row = Object.create(targetClass.prototype);
+        }
         for (let i = 0; i < resultSet.columnNames.length; i++) {
           const colName = resultSet.columnNames[i];
           const propKey = targetMeta?.columns.find(c => c.name === colName)?.propertyKey || colName;
           row[propKey] = resultSet.getValue(i);
         }
-        Object.setPrototypeOf(row, targetClass.prototype);
         data.push(row);
         resultSet.goToNextRow();
       }
@@ -794,13 +805,18 @@ export class QueryBuilder<T = unknown> {
 
     if (resultSet.rowCount > 0 && resultSet.goToFirstRow()) {
       while (!resultSet.isEnded) {
-        const row: Record<string, unknown> = {};
+        // 使用构造函数创建实例，确保与鸿蒙状态管理装饰器兼容
+        let row: Record<string, unknown>;
+        try {
+          row = new targetClass() as Record<string, unknown>;
+        } catch {
+          row = Object.create(targetClass.prototype);
+        }
         for (let i = 0; i < resultSet.columnNames.length; i++) {
           const colName = resultSet.columnNames[i];
           const propKey = targetMeta?.columns.find(c => c.name === colName)?.propertyKey || colName;
           row[propKey] = resultSet.getValue(i);
         }
-        Object.setPrototypeOf(row, targetClass.prototype);
         data.push(row);
         resultSet.goToNextRow();
       }
