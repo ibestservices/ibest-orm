@@ -103,7 +103,7 @@ export struct DemoPage {
     const orm = getORM();
 
     // 同步表结构
-    orm.sync(User);
+    orm.migrate(User);
 
     // 创建记录
     const user = new User();
@@ -201,7 +201,7 @@ try {
 
 ```ts
 // 自动迁移（创建表、新增/删除/修改字段）
-orm.sync(User);
+orm.migrate(User);
 
 // 查看迁移日志
 const logs = orm.getMigrationLogs();
