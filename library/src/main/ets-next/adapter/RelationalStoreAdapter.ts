@@ -175,12 +175,98 @@ export class RelationalStoreAdapter extends BaseAdapter {
 
   /**
    * 解析 WHERE 子句并应用到 RdbPredicates
+   * 支持多条件 AND 连接
    */
   private applyWhereClause(predicates: relationalStore.RdbPredicates, whereClause: string, whereArgs: ValueType[]): void {
-    // 简单解析: "field = ?" 格式
-    const match = whereClause.match(/(\w+)\s*=\s*\?/);
-    if (match && whereArgs.length > 0) {
-      predicates.equalTo(match[1], whereArgs[0] as relationalStore.ValueType);
+    if (!whereClause) return;
+
+    let paramIndex = 0;
+    // 按 AND 分割条件
+    const conditions = whereClause.split(/\s+AND\s+/i);
+
+    for (const cond of conditions) {
+      const trimmed = cond.trim();
+
+      // IS NULL
+      const isNullMatch = trimmed.match(/(\w+)\s+IS\s+NULL/i);
+      if (isNullMatch) {
+        predicates.isNull(isNullMatch[1]);
+        continue;
+      }
+
+      // IS NOT NULL
+      const isNotNullMatch = trimmed.match(/(\w+)\s+IS\s+NOT\s+NULL/i);
+      if (isNotNullMatch) {
+        predicates.isNotNull(isNotNullMatch[1]);
+        continue;
+      }
+
+      // field IN (?, ?, ...)
+      const inMatch = trimmed.match(/(\w+)\s+IN\s*\(([^)]+)\)/i);
+      if (inMatch) {
+        const field = inMatch[1];
+        const placeholderCount = inMatch[2].split(',').length;
+        const values = whereArgs.slice(paramIndex, paramIndex + placeholderCount);
+        predicates.in(field, values as relationalStore.ValueType[]);
+        paramIndex += placeholderCount;
+        continue;
+      }
+
+      // field >= ?
+      const gteMatch = trimmed.match(/(\w+)\s*>=\s*\?/);
+      if (gteMatch) {
+        predicates.greaterThanOrEqualTo(gteMatch[1], whereArgs[paramIndex] as relationalStore.ValueType);
+        paramIndex++;
+        continue;
+      }
+
+      // field > ?
+      const gtMatch = trimmed.match(/(\w+)\s*>\s*\?/);
+      if (gtMatch) {
+        predicates.greaterThan(gtMatch[1], whereArgs[paramIndex] as relationalStore.ValueType);
+        paramIndex++;
+        continue;
+      }
+
+      // field <= ?
+      const lteMatch = trimmed.match(/(\w+)\s*<=\s*\?/);
+      if (lteMatch) {
+        predicates.lessThanOrEqualTo(lteMatch[1], whereArgs[paramIndex] as relationalStore.ValueType);
+        paramIndex++;
+        continue;
+      }
+
+      // field < ?
+      const ltMatch = trimmed.match(/(\w+)\s*<\s*\?/);
+      if (ltMatch) {
+        predicates.lessThan(ltMatch[1], whereArgs[paramIndex] as relationalStore.ValueType);
+        paramIndex++;
+        continue;
+      }
+
+      // field != ?
+      const neMatch = trimmed.match(/(\w+)\s*!=\s*\?/);
+      if (neMatch) {
+        predicates.notEqualTo(neMatch[1], whereArgs[paramIndex] as relationalStore.ValueType);
+        paramIndex++;
+        continue;
+      }
+
+      // field LIKE ?
+      const likeMatch = trimmed.match(/(\w+)\s+LIKE\s+\?/i);
+      if (likeMatch) {
+        predicates.like(likeMatch[1], whereArgs[paramIndex] as string);
+        paramIndex++;
+        continue;
+      }
+
+      // field = ?
+      const eqMatch = trimmed.match(/(\w+)\s*=\s*\?/);
+      if (eqMatch) {
+        predicates.equalTo(eqMatch[1], whereArgs[paramIndex] as relationalStore.ValueType);
+        paramIndex++;
+        continue;
+      }
     }
   }
 }

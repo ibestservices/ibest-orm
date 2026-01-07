@@ -3,7 +3,6 @@
  */
 
 import { runUtilsTests } from './utils.test';
-import { runORMTests } from './orm.test';
 import { runAllIntegrationTests, runIntegrationTests, runPerformanceTests } from './integration.test';
 
 export function runAllTests() {
@@ -12,7 +11,6 @@ export function runAllTests() {
   console.log('========================================');
 
   runUtilsTests();
-  runORMTests();
 
   console.log('========================================');
   console.log('  所有测试完成');
@@ -20,7 +18,7 @@ export function runAllTests() {
 }
 
 // 导出测试函数
-export { runUtilsTests, runORMTests };
+export { runUtilsTests };
 export { runAllIntegrationTests, runIntegrationTests, runPerformanceTests };
 export type { IntegrationTestStats, PerformanceResult } from './integration.test';
 export { RelationTestResult, RelationTestSuite, RelationTestStats, runRelationTests, getRelationTestStats } from './RelationTest';

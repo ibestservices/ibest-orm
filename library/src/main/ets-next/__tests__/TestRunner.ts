@@ -3,7 +3,7 @@
  * 在模拟器/真机上运行单元测试
  */
 
-import { ORM, MemoryAdapter, initORMWithMemory, initORM, getORM, DatabaseAdapter } from '../index';
+import { ORM, initORM, getORM, DatabaseAdapter } from '../index';
 import { Table, Column, PrimaryKey, CreatedAt, SoftDelete, HasMany, BelongsTo } from '../decorator';
 import { ColumnType, LogLevel } from '../types';
 import { metadataStorage } from '../types/metadata';
@@ -121,7 +121,6 @@ export class TestStats {
 class TestRunner {
   private suites: TestSuite[] = [];
   private currentSuite: TestSuite | null = null;
-  private adapter: MemoryAdapter | null = null;
   private externalAdapter: DatabaseAdapter | null = null;
 
   constructor(adapter?: DatabaseAdapter) {
@@ -180,23 +179,9 @@ class TestRunner {
   runAll(): TestSuite[] {
     this.suites = [];
     this.runUtilsTests();
-    // 仅在使用 MemoryAdapter 时运行适配器测试
-    const isMemoryAdapter = this.externalAdapter instanceof MemoryAdapter ||
-      (!this.externalAdapter && this.isGlobalORMUsingMemoryAdapter());
-    if (isMemoryAdapter) {
-      this.runAdapterTests();
-    }
     this.runORMTests();
     this.runAdvancedTests();
     return this.suites;
-  }
-
-  private isGlobalORMUsingMemoryAdapter(): boolean {
-    try {
-      return getORM().getAdapter() instanceof MemoryAdapter;
-    } catch {
-      return true; // 未初始化时默认使用 MemoryAdapter
-    }
   }
 
   private runUtilsTests(): void {
@@ -221,66 +206,6 @@ class TestRunner {
     });
   }
 
-  private runAdapterTests(): void {
-    this.describe('MemoryAdapter 测试', () => {
-      this.it('创建适配器', () => {
-        this.adapter = new MemoryAdapter();
-        this.assertTrue(this.adapter !== null);
-        this.assertEqual(this.adapter.isConnected(), true);
-      });
-
-      this.it('创建表', () => {
-        this.adapter!.executeSqlSync('CREATE TABLE IF NOT EXISTS test_user (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, age INTEGER)');
-        const data = this.adapter!.getTableData('test_user');
-        this.assertLength(data, 0);
-      });
-
-      this.it('插入数据', () => {
-        const id = this.adapter!.insert('test_user', { name: '张三', age: 25 });
-        this.assertGreaterThan(id, 0);
-      });
-
-      this.it('查询数据', () => {
-        const data = this.adapter!.getTableData('test_user');
-        this.assertLength(data, 1);
-      });
-
-      this.it('更新数据', () => {
-        const count = this.adapter!.update('test_user', { age: 30 }, 'name = ?', ['张三']);
-        this.assertGreaterThan(count, 0);
-      });
-
-      this.it('验证更新', () => {
-        const data = this.adapter!.getTableData('test_user');
-        this.assertEqual(data[0]?.age, 30);
-      });
-
-      this.it('删除数据', () => {
-        this.adapter!.insert('test_user', { name: '李四', age: 20 });
-        const count = this.adapter!.delete('test_user', 'name = ?', ['李四']);
-        this.assertGreaterThan(count, 0);
-      });
-
-      this.it('事务提交', () => {
-        this.adapter!.beginTransaction();
-        this.adapter!.insert('test_user', { name: '事务用户', age: 40 });
-        this.adapter!.commit();
-        const data = this.adapter!.getTableData('test_user');
-        const found = data.filter(r => r.name === '事务用户');
-        this.assertLength(found, 1);
-      });
-
-      this.it('事务回滚', () => {
-        const before = this.adapter!.getTableData('test_user').length;
-        this.adapter!.beginTransaction();
-        this.adapter!.insert('test_user', { name: '回滚用户', age: 50 });
-        this.adapter!.rollback();
-        const after = this.adapter!.getTableData('test_user').length;
-        this.assertEqual(after, before);
-      });
-    });
-  }
-
   private runORMTests(): void {
     let orm: ORM;
 
@@ -289,12 +214,8 @@ class TestRunner {
         if (this.externalAdapter) {
           orm = initORM({ adapter: this.externalAdapter, logLevel: LogLevel.ERROR });
         } else {
-          // 尝试获取已初始化的全局 ORM，否则使用内存适配器
-          try {
-            orm = getORM();
-          } catch {
-            orm = initORMWithMemory({ logLevel: LogLevel.ERROR });
-          }
+          // 获取已初始化的全局 ORM
+          orm = getORM();
         }
         this.assertTrue(orm !== null);
       });
@@ -623,7 +544,7 @@ class TestRunner {
         u2.age = 33;
         orm.insert(u2);
         orm.rollback();
-        // RdbStore: rollback 会回滚整个事务，无需再 commit
+        orm.rollback(); // 确保事务深度回到 0
         const after = orm.query(TUser).count();
         this.assertEqual(after, before);
       });
@@ -633,6 +554,81 @@ class TestRunner {
       this.it('多条件 AND 查询', () => {
         const users = orm.query(TUser).where({ age: { gte: 20 } }).where({ age: { lte: 50 } }).find();
         this.assertTrue(users.length >= 0);
+      });
+
+      this.it('多 where 键值对风格', () => {
+        // 先插入测试数据
+        const u = new TUser();
+        u.name = '多条件测试用户';
+        u.age = 88;
+        orm.insert(u);
+
+        // 使用多个 where 条件查询
+        const result = orm.query(TUser)
+          .where('name', '多条件测试用户')
+          .where('age', 88)
+          .find();
+
+        this.assertGreaterThan(result.length, 0);
+        this.assertEqual(result[0]?.name, '多条件测试用户');
+        this.assertEqual(result[0]?.age, 88);
+
+        // 验证条件都生效：修改一个条件应该查不到
+        const noResult = orm.query(TUser)
+          .where('name', '多条件测试用户')
+          .where('age', 999)
+          .find();
+        this.assertEqual(noResult.length, 0);
+      });
+
+      this.it('多 where 对象风格', () => {
+        // 使用多个 where 对象条件查询
+        const result = orm.query(TUser)
+          .where({ name: '多条件测试用户' })
+          .where({ age: 88 })
+          .find();
+        this.assertGreaterThan(result.length, 0);
+        this.assertEqual(result[0]?.name, '多条件测试用户');
+
+        // 验证条件都生效
+        const noResult = orm.query(TUser)
+          .where({ name: '多条件测试用户' })
+          .where({ age: 999 })
+          .find();
+        this.assertEqual(noResult.length, 0);
+      });
+
+      this.it('多 where 操作符风格', () => {
+        // 使用操作符风格的多条件查询
+        const result = orm.query(TUser)
+          .where({ age: { gte: 80 } })
+          .where({ age: { lte: 90 } })
+          .find();
+        // 应该能查到 age=88 的用户
+        const found = result.filter(u => u.age === 88);
+        this.assertGreaterThan(found.length, 0);
+
+        // 验证条件都生效：范围不包含 88 应该查不到
+        const noResult = orm.query(TUser)
+          .where({ age: { gte: 100 } })
+          .where({ age: { lte: 200 } })
+          .find();
+        const notFound = noResult.filter(u => u.age === 88);
+        this.assertEqual(notFound.length, 0);
+      });
+
+      this.it('单 where 多字段对象', () => {
+        // 单个 where 中包含多个字段
+        const result = orm.query(TUser)
+          .where({ name: '多条件测试用户', age: 88 })
+          .find();
+        this.assertGreaterThan(result.length, 0);
+
+        // 验证条件都生效
+        const noResult = orm.query(TUser)
+          .where({ name: '多条件测试用户', age: 999 })
+          .find();
+        this.assertEqual(noResult.length, 0);
       });
 
       this.it('IN 查询', () => {
@@ -653,6 +649,70 @@ class TestRunner {
           .offset(0)
           .count();
         this.assertTrue(count >= 0);
+      });
+
+      this.it('多条件删除', () => {
+        // 插入测试数据
+        const u1 = new TUser();
+        u1.name = '删除测试用户';
+        u1.age = 77;
+        orm.insert(u1);
+
+        const u2 = new TUser();
+        u2.name = '删除测试用户';
+        u2.age = 78;
+        orm.insert(u2);
+
+        // 验证插入成功
+        const beforeCount = orm.query(TUser).where({ name: '删除测试用户' }).count();
+        this.assertEqual(beforeCount, 2);
+
+        // 多条件删除：只删除 age=77 的
+        orm.query(TUser)
+          .where({ name: '删除测试用户' })
+          .where({ age: 77 })
+          .delete();
+
+        // 验证只删除了一条
+        const afterCount = orm.query(TUser).where({ name: '删除测试用户' }).count();
+        this.assertEqual(afterCount, 1);
+
+        // 验证剩下的是 age=78 的
+        const remaining = orm.query(TUser).where({ name: '删除测试用户' }).first();
+        this.assertEqual(remaining?.age, 78);
+
+        // 清理
+        orm.query(TUser).where({ name: '删除测试用户' }).delete();
+      });
+
+      this.it('多条件更新', () => {
+        // 插入测试数据
+        const u1 = new TUser();
+        u1.name = '更新测试用户';
+        u1.age = 66;
+        orm.insert(u1);
+
+        const u2 = new TUser();
+        u2.name = '更新测试用户';
+        u2.age = 67;
+        orm.insert(u2);
+
+        // 多条件更新：只更新 age=66 的
+        orm.query(TUser)
+          .where({ name: '更新测试用户' })
+          .where({ age: 66 })
+          .update({ age: 100 });
+
+        // 验证只更新了一条
+        const updated = orm.query(TUser).where({ name: '更新测试用户', age: 100 }).count();
+        this.assertEqual(updated, 1);
+
+        // 验证另一条没被更新
+        const notUpdated = orm.query(TUser).where({ name: '更新测试用户', age: 67 }).count();
+        this.assertEqual(notUpdated, 1);
+
+        // 清理
+        orm.query(TUser).where({ name: '更新测试用户' }).delete();
       });
     });
 

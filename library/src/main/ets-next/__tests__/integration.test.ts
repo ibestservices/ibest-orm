@@ -2,11 +2,11 @@
  * 集成测试和性能测试
  */
 
-import { ORM, initORMWithMemory, initORM, getORM } from '../core';
+import { ORM, initORM, getORM } from '../core';
 import { Table, Column, PrimaryKey, CreatedAt, UpdatedAt, SoftDelete, NotNull, HasMany, BelongsTo } from '../decorator';
 import { ColumnType, LogLevel, RelationType } from '../types';
 import { metadataStorage, RelationMetadata } from '../types/metadata';
-import { MemoryAdapter, DatabaseAdapter } from '../adapter';
+import { DatabaseAdapter } from '../adapter';
 import { validate, Required, Length, Range, Email, Min, Max } from '../validator';
 import { QueryCache, initQueryCache, getQueryCache } from '../cache';
 import { setTimeFormat, getTimeFormat } from '../utils';
@@ -180,7 +180,8 @@ export function runIntegrationTests(adapter?: DatabaseAdapter): TestSuite[] {
       if (externalAdapter) {
         orm = initORM({ adapter: externalAdapter, logLevel: LogLevel.WARN });
       } else {
-        orm = initORMWithMemory({ logLevel: LogLevel.WARN });
+        // 获取已初始化的全局 ORM
+        orm = getORM();
       }
       orm.migrate(IntegrationUser, IntegrationOrder);
       expect(orm).toBeTruthy();
@@ -390,7 +391,8 @@ export function runPerformanceTests(adapter?: DatabaseAdapter): PerformanceResul
   if (adapter) {
     orm = initORM({ adapter, logLevel: LogLevel.ERROR });
   } else {
-    orm = initORMWithMemory({ logLevel: LogLevel.ERROR });
+    // 获取已初始化的全局 ORM
+    orm = getORM();
   }
 
   @Table()

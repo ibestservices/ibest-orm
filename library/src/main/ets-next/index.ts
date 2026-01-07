@@ -4,7 +4,7 @@
  */
 
 // 核心
-export { ORM, initORMWithMemory, getORM, setORM, initORM, InitORMOptions, MigrationLog, IBestORMInit, IBestORMInitOptions } from './core';
+export { ORM, getORM, setORM, initORM, InitORMOptions, MigrationLog, IBestORMInit, IBestORMInitOptions } from './core';
 
 // 类型
 export {
@@ -45,7 +45,7 @@ export { ORMError, ValidationError, QueryError, MigrationError, ErrorCode, Local
 export { Logger, getLogger } from './logger';
 
 // 适配器
-export { DatabaseAdapter, BaseAdapter, MemoryAdapter, RelationalStoreAdapter, StoreConfig, createRelationalStoreAdapter } from './adapter';
+export { DatabaseAdapter, BaseAdapter, RelationalStoreAdapter, StoreConfig, createRelationalStoreAdapter } from './adapter';
 
 // 元数据
 export { metadataStorage, EntityMetadata, ColumnMetadata, RelationMetadata } from './types/metadata';

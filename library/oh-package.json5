@@ -1,6 +1,6 @@
 {
   "name": "@ibestservices/ibest-orm",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "description": "一个全功能 ORM，支持关联、预加载、事务、批量处理、开发者友好的鸿蒙开源关系型数据库工具库。",
   "keywords": [
     "数据库",

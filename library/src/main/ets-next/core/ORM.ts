@@ -5,7 +5,6 @@
 import { Class, ORMConfig, LogLevel, ColumnType, ValueType, ValuesBucket, RelationType } from '../types';
 import { metadataStorage, EntityMetadata, ColumnMetadata } from '../types/metadata';
 import { DatabaseAdapter } from '../adapter/BaseAdapter';
-import { MemoryAdapter } from '../adapter/MemoryAdapter';
 import { createRelationalStoreAdapter } from '../adapter/RelationalStoreAdapter';
 import { QueryBuilder } from '../query/QueryBuilder';
 import { CascadeHandler } from '../relation/CascadeHandler';
@@ -770,15 +769,6 @@ export class ORM {
 // ========== 全局实例管理 ==========
 
 let globalORM: ORM | null = null;
-
-/**
- * 初始化 ORM（使用内存适配器，用于测试和预览器）
- */
-export function initORMWithMemory(config?: ORMConfig): ORM {
-  const adapter = new MemoryAdapter();
-  globalORM = new ORM(adapter, config);
-  return globalORM;
-}
 
 /**
  * 获取 ORM 实例

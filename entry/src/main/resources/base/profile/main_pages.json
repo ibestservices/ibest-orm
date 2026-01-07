@@ -1,7 +1,6 @@
 {
   "src": [
     "pages/Index",
-    "pages/ORMNextTest",
     "pages/IntegrationTest",
     "pages/RdbStoreTest",
     "pages/RelationTest"

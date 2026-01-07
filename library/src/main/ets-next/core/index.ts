@@ -1,1 +1,1 @@
-export { ORM, initORMWithMemory, getORM, setORM, initORM, InitORMOptions, MigrationLog, IBestORMInit, IBestORMInitOptions } from './ORM';
+export { ORM, getORM, setORM, initORM, InitORMOptions, MigrationLog, IBestORMInit, IBestORMInitOptions } from './ORM';
