@@ -518,6 +518,8 @@ export class ORM {
           const value = (entity as Record<string, unknown>)[col.propertyKey];
           if (value !== undefined) {
             values[col.name] = value as ValueType;
+          } else if (isInsert) {
+            values[col.name] = col.defaultValue as ValueType;
           }
         }
       }
