@@ -18,6 +18,9 @@ class ObservedProduct {
 
   @Field({ type: ColumnType.REAL })
   @Trace price: number = 0;
+
+  @Field({ defaultValue: 'default note' })
+  @Trace note?: string;
 }
 
 @Entry
@@ -188,6 +191,9 @@ struct RdbStoreTest {
         }
         if (queried.name !== '测试商品') {
           throw new Error(`数据错误：name 期望 "测试商品"，实际 "${queried.name}"`);
+        }
+        if (queried.note !== 'default note') {
+          throw new Error(`数据错误: note 期望 "empty note", 实际 "${queried.note}"`);
         }
 
         // 4. 更新
