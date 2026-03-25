@@ -330,6 +330,98 @@ export class QueryBuilder<T = unknown> {
   }
 
   /**
+   * 查询某字段的最大值
+   * @param field 字段名
+   * @returns 最大值，无记录时返回 null
+   */
+  max(field: keyof T | string): number | null {
+    this.ensureTable();
+
+    const columnName = this.toColumnName(field as string);
+    const whereClause = this.buildWhereClause();
+    const sql = `SELECT MAX(${columnName}) as max_val FROM ${this.tableName}${whereClause.sql}`;
+
+    const resultSet = this.adapter.query(sql, whereClause.params);
+    let result: number | null = null;
+
+    if (resultSet.goToFirstRow()) {
+      const value = resultSet.getValue(0);
+      result = typeof value === 'number' ? value : null;
+    }
+    resultSet.close();
+    return result;
+  }
+
+  /**
+   * 查询某字段的最小值
+   * @param field 字段名
+   * @returns 最小值，无记录时返回 null
+   */
+  min(field: keyof T | string): number | null {
+    this.ensureTable();
+
+    const columnName = this.toColumnName(field as string);
+    const whereClause = this.buildWhereClause();
+    const sql = `SELECT MIN(${columnName}) as min_val FROM ${this.tableName}${whereClause.sql}`;
+
+    const resultSet = this.adapter.query(sql, whereClause.params);
+    let result: number | null = null;
+
+    if (resultSet.goToFirstRow()) {
+      const value = resultSet.getValue(0);
+      result = typeof value === 'number' ? value : null;
+    }
+    resultSet.close();
+    return result;
+  }
+
+  /**
+   * 查询某字段的总和
+   * @param field 字段名
+   * @returns 总和，无记录时返回 0
+   */
+  sum(field: keyof T | string): number {
+    this.ensureTable();
+
+    const columnName = this.toColumnName(field as string);
+    const whereClause = this.buildWhereClause();
+    const sql = `SELECT SUM(${columnName}) as sum_val FROM ${this.tableName}${whereClause.sql}`;
+
+    const resultSet = this.adapter.query(sql, whereClause.params);
+    let result = 0;
+
+    if (resultSet.goToFirstRow()) {
+      const value = resultSet.getValue(0);
+      result = typeof value === 'number' ? value : 0;
+    }
+    resultSet.close();
+    return result;
+  }
+
+  /**
+   * 查询某字段的平均值
+   * @param field 字段名
+   * @returns 平均值，无记录时返回 null
+   */
+  avg(field: keyof T | string): number | null {
+    this.ensureTable();
+
+    const columnName = this.toColumnName(field as string);
+    const whereClause = this.buildWhereClause();
+    const sql = `SELECT AVG(${columnName}) as avg_val FROM ${this.tableName}${whereClause.sql}`;
+
+    const resultSet = this.adapter.query(sql, whereClause.params);
+    let result: number | null = null;
+
+    if (resultSet.goToFirstRow()) {
+      const value = resultSet.getValue(0);
+      result = typeof value === 'number' ? value : null;
+    }
+    resultSet.close();
+    return result;
+  }
+
+  /**
    * 是否存在
    */
   exists(): boolean {

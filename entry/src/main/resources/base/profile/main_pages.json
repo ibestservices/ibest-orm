@@ -3,6 +3,7 @@
     "pages/Index",
     "pages/IntegrationTest",
     "pages/RdbStoreTest",
-    "pages/RelationTest"
+    "pages/RelationTest",
+    "pages/AggregateQueryTest"
   ]
 }

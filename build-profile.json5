@@ -7,11 +7,11 @@
         "material": {
           "certpath": "C:\\Users\\Administrator\\.ohos\\config\\default_ibest-orm_SL0hxJrA5gxn3tag925vVfiNeJbNY3s9gQ3kPzfnifI=.cer",
           "keyAlias": "debugKey",
-          "keyPassword": "0000001B8495233B816099A811DA35CBC1B1A1D0F4F75C34C9C11924E961376E35786FE7F178D8828B27CD",
+          "keyPassword": "0000001B0CA76D61829F1C7655687B9D8E2F9A5337C4F2811FD45373B4DA1783C6C995EFAA619501D08B3A",
           "profile": "C:\\Users\\Administrator\\.ohos\\config\\default_ibest-orm_SL0hxJrA5gxn3tag925vVfiNeJbNY3s9gQ3kPzfnifI=.p7b",
           "signAlg": "SHA256withECDSA",
           "storeFile": "C:\\Users\\Administrator\\.ohos\\config\\default_ibest-orm_SL0hxJrA5gxn3tag925vVfiNeJbNY3s9gQ3kPzfnifI=.p12",
-          "storePassword": "0000001B85B5826D5FD36760554E4070ACEA7EA04AD6E354544BFDF8C53F6D4F801D727CAD24D550D5C9FB"
+          "storePassword": "0000001B38CB806E93F255E927C59D12E47FBA81572E83ACBD9816EDFA2105F4D76A19907941CB50031EED"
         }
       }
     ],
